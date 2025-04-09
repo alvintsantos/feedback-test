@@ -166,7 +166,7 @@ The backend provides the following API endpoints:
 ### Installation Issue
 
 1. Change the php version in the composer if needed
-
+2. If php artisan serve not working, go to public folder then ```php -S 127.0.0.1:8080```
 
 ### Backend Issues
 

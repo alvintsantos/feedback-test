@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { API_URL, HAPPINESS_EMOJIS, HAPPINESS_LABELS } from '../config/config';
+import { HAPPINESS_EMOJIS, HAPPINESS_LABELS } from '../config/config';
+import { submitFeedback, ValidationError } from '../services/feedbackService';
 
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
   onFeedbackSubmitted: () => void;
+}
+
+interface ValidationErrors {
+  [key: string]: string[];
 }
 
 const FeedbackModal: React.FC<FeedbackModalProps> = ({ 
@@ -19,6 +23,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
   const [happiness, setHappiness] = useState<number>(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors | null>(null);
 
   if (!isOpen) return null;
 
@@ -26,9 +31,10 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setValidationErrors(null);
 
     try {
-      await axios.post(`${API_URL}/feedback`, {
+      await submitFeedback({
         customer_name: customerName,
         rating,
         message,
@@ -46,7 +52,14 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
       onClose();
     } catch (err) {
       console.error('Error submitting feedback:', err);
-      setError('There was an error submitting your feedback. Please try again.');
+      
+      if ((err as ValidationError).errors) {
+        // Handle validation errors
+        setValidationErrors((err as ValidationError).errors || {});
+        setError((err as ValidationError).message || 'Validation failed. Please check the form fields.');
+      } else {
+        setError('There was an error submitting your feedback. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -58,6 +71,15 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
   const handleHappinessChange = (level: number) => {
     setHappiness(level);
+  };
+
+  const getFieldErrorMessage = (fieldName: string): string | null => {
+    if (!validationErrors || !validationErrors[fieldName]) return null;
+    return validationErrors[fieldName][0];
+  };
+
+  const getInputClassName = (fieldName: string): string => {
+    return `form-control ${getFieldErrorMessage(fieldName) ? 'is-invalid' : ''}`;
   };
 
   return (
@@ -83,12 +105,17 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
                   <label htmlFor="customerName" className="form-label">Your Name</label>
                   <input 
                     type="text" 
-                    className="form-control" 
+                    className={getInputClassName('customer_name')}
                     id="customerName"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     required
                   />
+                  {getFieldErrorMessage('customer_name') && (
+                    <div className="invalid-feedback">
+                      {getFieldErrorMessage('customer_name')}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mb-3">
@@ -109,20 +136,28 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
                       </span>
                     ))}
                   </div>
+                  {getFieldErrorMessage('rating') && (
+                    <div className="text-danger small mt-1">
+                      {getFieldErrorMessage('rating')}
+                    </div>
+                  )}
                 </div>
-                
-                
                 
                 <div className="mb-3">
                   <label htmlFor="message" className="form-label">Your Feedback</label>
                   <textarea 
-                    className="form-control" 
+                    className={getInputClassName('message')}
                     id="message"
                     rows={4}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     required
                   />
+                  {getFieldErrorMessage('message') && (
+                    <div className="invalid-feedback">
+                      {getFieldErrorMessage('message')}
+                    </div>
+                  )}
                 </div>
                 <div className="mb-3">
                   <label className="form-label">How happy are you with this app?</label>
@@ -148,6 +183,11 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
                       </span>
                     ))}
                   </div>
+                  {getFieldErrorMessage('happiness_level') && (
+                    <div className="text-danger small mt-1 text-center">
+                      {getFieldErrorMessage('happiness_level')}
+                    </div>
+                  )}
                   <div className="d-flex justify-content-between mt-1 px-2 text-muted" style={{ fontSize: '0.8rem' }}>
                     <span>{HAPPINESS_LABELS.min}</span>
                     <span>{HAPPINESS_LABELS.max}</span>

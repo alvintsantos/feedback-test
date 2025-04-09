@@ -8,32 +8,51 @@ class FeedbackController extends Controller
 {
     public function index()
     {
+        $validated = request()->validate([
+            'rating' => 'nullable|integer|min:1|max:5',
+            'happiness_level' => 'nullable|integer|min:1|max:5',
+            'sort' => 'nullable|in:rating',
+            'order' => 'nullable|in:asc,desc',
+            'per_page' => 'nullable|integer|min:1|max:100'
+        ]);
+
         $query = Feedback::query();
 
-        if (request()->has('rating')) {
-            $query->where('rating', request()->query('rating'));
+        if (isset($validated['rating'])) {
+            $query->where('rating', $validated['rating']);
         }
 
-        if (request()->has('happiness_level')) {
-            $query->where('happiness_level', request()->query('happiness_level'));
+        if (isset($validated['happiness_level'])) {
+            $query->where('happiness_level', $validated['happiness_level']);
         }
 
-        if (request()->has('sort')) {
-            $order = request()->query('order', 'desc');
+        if (isset($validated['sort'])) {
+            $order = $validated['order'] ?? 'desc';
             $query->orderBy('rating', $order);
         } else {
             // Default to sorting by created_at in descending order
             $query->orderBy('id', 'desc');
         }
 
-        $perPage = request()->query('per_page', 10);
+        $perPage = $validated['per_page'] ?? 10;
         $feedbacks = $query->paginate($perPage);
         return response()->json($feedbacks);
     }
 
     public function store(Request $request)
     {
-        $feedback = Feedback::create($request->all());
-        return response()->json($feedback, 201);
+        $validated = $request->validate([
+            'customer_name' => 'required|string|max:255|regex:/^[^0-9]*$/',
+            'rating' => 'required|integer|min:1|max:5',
+            'message' => 'required|string|max:255|min:10',
+            'happiness_level' => 'required|integer|min:1|max:5'
+        ]);
+        
+        $feedback = Feedback::create($validated);
+        
+        return response()->json([
+            'message' => 'Feedback submitted successfully',
+            'data' => $feedback
+        ], 201);
     }
 }

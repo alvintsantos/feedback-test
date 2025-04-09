@@ -3,8 +3,7 @@ import FeedbackContent from "./FeedbackContent";
 import Pagination from "./Pagination";
 import FeedbackListHeader from "./FeedbackListHeader";
 import FeedbackModal from "./FeedbackModal";
-import axios from "axios";
-import { API_URL } from "../config/config";
+import { fetchFeedbacks, ValidationError } from "../services/feedbackService";
 
 interface Feedback {
   id: number;
@@ -18,7 +17,8 @@ interface Feedback {
 function Feedbacks() {
   const [feedbacklist, setFeedbacklist] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]> | null>(null);
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [happinessFilter, setHappinessFilter] = useState<number | null>(null);
   const [sortOrder, setSortOrder] = useState<string>("");
@@ -27,47 +27,39 @@ function Feedbacks() {
   const [itemsPerPage] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchFeedbacks = () => {
+  const getFeedbacks = () => {
     setLoading(true);
-    // Build query parameters for filtering and sorting
-    const params = new URLSearchParams();
+    setError(null);
+    setValidationErrors(null);
     
-    if (ratingFilter !== null) {
-      params.append('rating', ratingFilter.toString());
-    }
-    
-    if (happinessFilter !== null) {
-      params.append('happiness_level', happinessFilter.toString());
-    }
-    
-    if (sortOrder) {
-      params.append('sort', 'rating');
-      params.append('order', sortOrder);
-    }
-    params.append('page', currentPage.toString());
-    params.append('per_page', itemsPerPage.toString());
-    
-    // Make the API call with query parameters
-    axios.get(`${API_URL}/feedback?${params.toString()}`)
+    fetchFeedbacks(ratingFilter, happinessFilter, sortOrder, currentPage, itemsPerPage)
       .then(response => {
-        setFeedbacklist(response.data.data);
-        setTotalFeedbacks(response.data.total);
+        setFeedbacklist(response.data);
+        setTotalFeedbacks(response.total);
         setLoading(false);
       })
-      .catch(error => {
-        console.error("There was an error fetching the feedbacks!", error);
-        setError(error);
+      .catch(err => {
+        console.error("There was an error fetching the feedbacks!", err);
+        
+        if ((err as ValidationError).errors) {
+          // Handle validation errors
+          setValidationErrors((err as ValidationError).errors || {});
+          setError((err as ValidationError).message || 'Invalid filters');
+        } else {
+          setError('Failed to load feedbacks. Please try again.');
+        }
+        
         setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchFeedbacks();
+    getFeedbacks();
   }, [ratingFilter, happinessFilter, sortOrder, currentPage]); // Re-fetch when filter, sort, or page changes
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // fetchFeedbacks will be called by the useEffect due to dependency on currentPage
+    // getFeedbacks will be called by the useEffect due to dependency on currentPage
   };
 
   const openFeedbackModal = () => {
@@ -76,6 +68,21 @@ function Feedbacks() {
 
   const closeFeedbackModal = () => {
     setIsModalOpen(false);
+  };
+
+  const renderValidationErrors = () => {
+    if (!validationErrors) return null;
+    
+    return (
+      <div className="alert alert-danger">
+        <strong>Validation Error:</strong>
+        <ul className="mb-0 mt-1">
+          {Object.entries(validationErrors).map(([field, messages]) => (
+            <li key={field}>{field}: {messages[0]}</li>
+          ))}
+        </ul>
+      </div>
+    );
   };
 
   return (
@@ -89,19 +96,22 @@ function Feedbacks() {
         setHappinessFilter={setHappinessFilter}
         setSortOrder={setSortOrder}
         setCurrentPage={setCurrentPage}
-        fetchFeedbacks={fetchFeedbacks}
+        fetchFeedbacks={getFeedbacks}
         openFeedbackModal={openFeedbackModal}
       />
-      {!loading && !error && feedbacklist.length > 0 && (
+      {!loading && !error && !validationErrors && feedbacklist.length > 0 && (
         <div className="col-md-12 text-muted text-right pull-right mb-2">
           Displaying {feedbacklist.length} out of {totalFeedbacks} feedbacks
         </div>
       )}
       {loading && <div className="alert alert-info">Loading feedbacks...</div>}
-      {error && <div className="alert alert-danger">Error loading feedbacks</div>}
-      {!loading && !error && feedbacklist.length === 0 && <div className="alert alert-danger">No feedbacks found</div>}
+      {error && !validationErrors && <div className="alert alert-danger">{error}</div>}
+      {validationErrors && renderValidationErrors()}
+      {!loading && !error && !validationErrors && feedbacklist.length === 0 && (
+        <div className="alert alert-danger">No feedbacks found</div>
+      )}
       
-      {!loading && !error && feedbacklist.length > 0 && (
+      {!loading && !error && !validationErrors && feedbacklist.length > 0 && (
         <>
           <ul className="list-group">
             {feedbacklist.map((feedback) => (  
@@ -127,7 +137,7 @@ function Feedbacks() {
       <FeedbackModal 
         isOpen={isModalOpen} 
         onClose={closeFeedbackModal} 
-        onFeedbackSubmitted={fetchFeedbacks} 
+        onFeedbackSubmitted={getFeedbacks} 
       />
     </Fragment>
   );
