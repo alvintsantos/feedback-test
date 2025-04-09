@@ -26,9 +26,6 @@ A full-stack application for collecting and managing user feedback with rating a
 - Node.js 16 or higher
 - npm or yarn
 
-### Note
-- The application includes pre-configured .env files for both frontend and backend. You only need to adjust the database connection settings if needed.
-
 ## Installation
 
 
@@ -51,7 +48,7 @@ cd backend
 composer install
 ```
 
-4. Configure your database connection in the `.env` file:
+4. Copy the `.env.example` file to create a new `.env` file and configure your database connection:
 ```bash
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -93,7 +90,7 @@ yarn install
 ```
 
 
-3. Configure the API URL in the `.env` file:
+3. 4. Copy the `.env.example` file to create a new `.env` file and configure the api endpoint:
 ```
 VITE_API_BASE_URL=http://localhost:8080/api
 ```
