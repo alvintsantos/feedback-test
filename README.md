@@ -90,7 +90,7 @@ yarn install
 ```
 
 
-3. 4. Copy the `.env.example` file to create a new `.env` file and configure the api endpoint:
+3. Copy the `.env.example` file to create a new `.env` file and configure the api endpoint:
 ```
 VITE_API_BASE_URL=http://localhost:8080/api
 ```
@@ -162,6 +162,11 @@ The backend provides the following API endpoints:
 - Modern UI with modals and interactive components
 
 ## Troubleshooting
+
+### Installation Issue
+
+1. Change the php version in the composer if needed
+
 
 ### Backend Issues
 
